@@ -71,6 +71,7 @@ RUN python3 -m pip install --no-cache-dir \
     spacy \
     datasets \
     transformers \
+    duckduckgo_search \
     "sentencepiece==0.1.97" \
     && python3 -m pip install --no-cache-dir fastai --no-deps \
     && python3 -m pip install --no-cache-dir fastbook --no-deps
