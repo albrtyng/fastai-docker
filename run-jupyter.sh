@@ -9,5 +9,5 @@ docker run \
     --gpus all \
     --shm-size=2g \
     -p 8888:8888 \
-    -v fastai-notebooks:/home/jupyter/notebooks \
+    -v fastai-notebooks:/home/jupyter/ \
     fastai-local 
