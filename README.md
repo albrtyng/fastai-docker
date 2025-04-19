@@ -37,7 +37,7 @@ docker build -t fastai-local .
 3. Run the container:
 
 ```bash
-docker run --gpus all -p 8888:8888 -v fastai-notebooks:/home/jupyter/notebooks fastai-local
+docker run --gpus all -p 8888:8888 -v fastai-notebooks:/home/jupyter/ fastai-local
 ```
 
 This will:
