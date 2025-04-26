@@ -18,10 +18,10 @@ This Docker container provides a minimal environment for running FastAI course n
 
 ## Quick Start
 
-1. Using the shell script (recommended):
+1. Using the docker compose (recommended):
 
 ```bash
-./run-jupyter.sh
+docker-compose up --build
 ```
 
 2. Or manually build and run:
@@ -31,13 +31,13 @@ docker volume create fastai-notebooks
 ```
 
 ```bash
-docker build -t fastai-local .
+docker build -t fastai-local-v2 .
 ```
 
 3. Run the container:
 
 ```bash
-docker run --gpus all -p 8888:8888 -v fastai-notebooks:/home/jupyter/ fastai-local
+docker run --gpus all -p 8888:8888 -v fastai-notebooks:/home/jupyter/ fastai-local-v2
 ```
 
 This will:
