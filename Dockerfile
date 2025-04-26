@@ -1,4 +1,5 @@
-FROM nvidia/cuda:12.8.0-base-ubuntu22.04
+# Stage 1: Build stage
+FROM nvidia/cuda:12.8.0-base-ubuntu22.04 AS builder
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -7,6 +8,7 @@ LABEL maintainer="Albert Yang"
 LABEL description="Jupyter notebook for fastai course workloads with GPU support"
 LABEL runtime.requirements="Run with: docker run --gpus all --shm-size=2g -p 8888:8888 <image-name>"
 
+# Install build dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     python3 \
@@ -22,42 +24,38 @@ RUN apt-get update && \
     sentencepiece \
     libsentencepiece-dev
 
-# Reduce final image size by deleting apt cache
-RUN rm -rf /var/lib/apt/lists/*
+# Install Python packages
+RUN python3 -m pip install --no-cache-dir --upgrade pip "setuptools>=68.0.0" "wheel>=0.41.0"
 
-# Create a non-root user
-RUN useradd -m jupyter
+# Install PyTorch and other dependencies
+RUN python3 -m pip install --no-cache-dir --pre \
+    torch torchvision \
+    --index-url https://download.pytorch.org/whl/nightly/cu128 \
+    --target /python_packages
 
-# Create and set permissions for pip cache directory
-RUN mkdir -p /home/jupyter/.cache/pip && \
-    chown -R jupyter:jupyter /home/jupyter/.cache
+# Stage 2: Final stage
+FROM nvidia/cuda:12.8.0-base-ubuntu22.04
 
-# Switch to the non-root user
-USER jupyter
-WORKDIR /home/jupyter
+ENV DEBIAN_FRONTEND=noninteractive
 
-# Install Python packages and ensure scripts are in PATH
-ENV PATH="${PATH}:/home/jupyter/.local/bin"
+# Install only runtime dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    python3 \
+    python3-pip \
+    graphviz && \
+    rm -rf /var/lib/apt/lists/*
 
-# Upgrade pip and basic tools
+# Copy the installed packages from builder stage
+COPY --from=builder /python_packages /usr/local/lib/python3.10/site-packages/
+
 RUN python3 -m pip install --no-cache-dir --upgrade pip && \
-    python3 -m pip install --no-cache-dir --upgrade setuptools wheel
-
-# Install Jupyter ecosystem
-RUN python3 -m pip install --no-cache-dir \
+    python3 -m pip install --no-cache-dir \
     notebook \
     jupyterlab \
     ipykernel \
     ipython \
     "ipywidgets<8"  # Downgrade ipywidgets for fastbook 0.2.9 compatibility
-
-# Install PyTorch with CUDA support (nightly - 5070ti support)
-RUN python3 -m pip install --no-cache-dir --pre \
-    torch torchvision torchaudio \
-    --index-url https://download.pytorch.org/whl/nightly/cu128
-
-# Install graphviz used by fastai notebooks
-RUN python3 -m pip install --no-cache-dir graphviz
 
 # Install fastai and its core dependencies manually to avoid torch reinstall
 RUN python3 -m pip install --no-cache-dir \
@@ -76,7 +74,22 @@ RUN python3 -m pip install --no-cache-dir \
     && python3 -m pip install --no-cache-dir fastai --no-deps \
     && python3 -m pip install --no-cache-dir fastbook --no-deps
 
+# Create non-root user
+RUN useradd -m jupyter
+
+# Set proper permissions after all installations
+RUN chown -R jupyter:jupyter /home/jupyter
+
+# Switch to non-root user
+USER jupyter
+WORKDIR /home/jupyter
+
 EXPOSE 8888
 
 # Use jupyter-notebook command
-CMD ["jupyter-notebook", "--ip", "0.0.0.0", "--no-browser"]
+CMD ["jupyter", "notebook", \
+    "--ServerApp.ip=0.0.0.0", \
+    "--port=8888", \
+    "--ServerApp.port_retries=0", \
+    "--ServerApp.allow_credentials=True", \
+    "--no-browser"]
